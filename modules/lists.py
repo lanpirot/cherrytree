@@ -23,6 +23,9 @@ import gtk
 import re
 import cons, support
 
+TAG_NOCHANGE = "nochange"
+TAG_DOSTRIKE = "dostrike"
+TAG_UNSTRIKE = "unstrike"
 
 class ListsHandler:
     """Handler of Bulleted and Numbered Lists"""
@@ -297,15 +300,40 @@ class ListsHandler:
     def todo_list_rotate_status(self, todo_char_iter, text_buffer):
         """Rotate status between ☐ and ☑ and ☒"""
         iter_offset = todo_char_iter.get_offset()
+        (start_index, end_index) = self.get_start_end(text_buffer, todo_char_iter)
         if todo_char_iter.get_char() == self.dad.chars_todo[0]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[1])
+            self.strike_through(TAG_DOSTRIKE, start_index, end_index, text_buffer)
         elif todo_char_iter.get_char() == self.dad.chars_todo[1]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[2])
+            self.strike_through(TAG_NOCHANGE, start_index, end_index, text_buffer)
         elif todo_char_iter.get_char() == self.dad.chars_todo[2]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[0])
+            self.strike_through(TAG_UNSTRIKE, start_index, end_index, text_buffer)
+
+    def get_start_end(self, buffer, char_iter):
+        line_no = char_iter.get_line()
+        start = buffer.get_iter_at_line(line_no)
+        start.set_offset(start.get_offset() + 2)
+        if line_no < buffer.get_line_count() - 1:
+            end = buffer.get_iter_at_line(line_no + 1)
+            end.set_offset(end.get_offset() - 1)
+        else:
+            end = buffer.get_end_iter()
+        return start.get_offset(), end.get_offset()
+
+    def strike_through(self, doit, start_index, end_index, buffer):
+        #print buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
+        if doit == TAG_NOCHANGE:
+            return
+        start_iter = buffer.get_start_iter()
+        start_iter.set_offset(start_index)
+        end_iter = buffer.get_end_iter()
+        end_iter.set_offset(end_index)
+        self.dad.apply_tag(cons.TAG_STRIKETHROUGH, cons.TAG_PROP_TRUE, start_iter, end_iter, buffer)
 
     def char_iter_forward_to_newline(self, char_iter):
         """Forwards char iter to line end"""
