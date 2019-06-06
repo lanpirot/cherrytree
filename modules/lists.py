@@ -326,7 +326,6 @@ class ListsHandler:
         return start.get_offset(), end.get_offset()
 
     def strike_through(self, doit, start_index, end_index, buffer):
-        #print buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter())
         if doit == TAG_NOCHANGE:
             return
         start_iter = buffer.get_start_iter()
