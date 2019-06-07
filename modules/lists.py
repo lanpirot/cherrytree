@@ -318,15 +318,46 @@ class ListsHandler:
         """Find the start and end of a line/paragraph after a checkbox to strike through/remove the strike through"""
         line_no = char_iter.get_line()
         start = buffer.get_iter_at_line(line_no)
+        checkbox_from_line_start = 0
         while start.get_char() not in self.dad.chars_todo:
             start.set_offset(start.get_offset() + 1)
+            checkbox_from_line_start += 1
         start.set_offset(start.get_offset() + 2)
         if line_no < buffer.get_line_count() - 1:
+            line_no = self.get_line_no_where_para_stops(buffer, line_no, checkbox_from_line_start+3)
             end = buffer.get_iter_at_line(line_no + 1)
             end.set_offset(end.get_offset() - 1)
         else:
             end = buffer.get_end_iter()
         return start.get_offset(), end.get_offset()
+
+    def get_line_no_where_para_stops(self, buffer, line_no, must_be_white_space):
+        """A checkbox paragraph can extend over several lines, which is the last one?"""
+        while True:
+            line_no += 1
+            # is there a next line?
+            if line_no >= buffer.get_line_count():
+                return line_no - 1
+            # does the next line have enough chars?
+            start_iter = buffer.get_iter_at_line(line_no)
+            if start_iter.get_chars_in_line() <= must_be_white_space:
+                return line_no - 1
+            # are all of the first must_be_white_space char chars white space?
+            end_iter = buffer.get_iter_at_line(line_no)
+            end_iter.set_offset(end_iter.get_offset() + must_be_white_space)
+            slice = buffer.get_slice(start_iter, end_iter)
+            if len(slice) > slice.count(" "):
+                return line_no - 1
+            # does the line contain a checkbox?
+            if line_no < buffer.get_line_count() - 1:
+                end_iter = buffer.get_iter_at_line(line_no + 1)
+                end_iter.set_offset(end_iter.get_offset() - 1)
+            else:
+                end_iter = buffer.get_end_iter()
+            slice = buffer.get_slice(start_iter, end_iter)
+            for t in self.dad.chars_todo:
+                if t in slice:
+                    return line_no - 1
 
     def strike_through_checkbox_text(self, doit, start_index, end_index, buffer):
         """Change the text from start_index to end_index to strike through/remove it, depending on the value of
