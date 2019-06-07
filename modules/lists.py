@@ -300,23 +300,26 @@ class ListsHandler:
     def todo_list_rotate_status(self, todo_char_iter, text_buffer):
         """Rotate status between ☐ and ☑ and ☒"""
         iter_offset = todo_char_iter.get_offset()
-        (start_index, end_index) = self.get_start_end(text_buffer, todo_char_iter)
+        (start_index, end_index) = self.get_start_end_of_checkbox(text_buffer, todo_char_iter)
         if todo_char_iter.get_char() == self.dad.chars_todo[0]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[1])
-            self.strike_through(TAG_DOSTRIKE, start_index, end_index, text_buffer)
+            self.strike_through_checkbox_text(TAG_DOSTRIKE, start_index, end_index, text_buffer)
         elif todo_char_iter.get_char() == self.dad.chars_todo[1]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[2])
-            self.strike_through(TAG_NOCHANGE, start_index, end_index, text_buffer)
+            self.strike_through_checkbox_text(TAG_NOCHANGE, start_index, end_index, text_buffer)
         elif todo_char_iter.get_char() == self.dad.chars_todo[2]:
             text_buffer.delete(todo_char_iter, text_buffer.get_iter_at_offset(iter_offset+1))
             text_buffer.insert(text_buffer.get_iter_at_offset(iter_offset), self.dad.chars_todo[0])
-            self.strike_through(TAG_UNSTRIKE, start_index, end_index, text_buffer)
+            self.strike_through_checkbox_text(TAG_UNSTRIKE, start_index, end_index, text_buffer)
 
-    def get_start_end(self, buffer, char_iter):
+    def get_start_end_of_checkbox(self, buffer, char_iter):
+        """Find the start and end of a line/paragraph after a checkbox to strike through/remove the strike through"""
         line_no = char_iter.get_line()
         start = buffer.get_iter_at_line(line_no)
+        while start.get_char() not in self.dad.chars_todo:
+            start.set_offset(start.get_offset() + 1)
         start.set_offset(start.get_offset() + 2)
         if line_no < buffer.get_line_count() - 1:
             end = buffer.get_iter_at_line(line_no + 1)
@@ -325,7 +328,9 @@ class ListsHandler:
             end = buffer.get_end_iter()
         return start.get_offset(), end.get_offset()
 
-    def strike_through(self, doit, start_index, end_index, buffer):
+    def strike_through_checkbox_text(self, doit, start_index, end_index, buffer):
+        """Change the text from start_index to end_index to strike through/remove it, depending on the value of
+        parameter doit"""
         if doit == TAG_NOCHANGE:
             return
         start_iter = buffer.get_start_iter()
