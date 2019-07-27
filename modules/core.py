@@ -2769,9 +2769,9 @@ iter_end, exclude_iter_sel_end=True)
         while curr_iter:
             if self.treestore[curr_iter][1] == node_name:
                 self.treeview_safe_set_cursor(curr_iter)
-                return
+                return curr_iter
             curr_iter = self.treestore.iter_next(curr_iter)
-        self.node_child_add_with_data(father_iter, node_name, cons.RICH_TEXT_ID, "", False, 0, False, None)
+        return self.node_child_add_with_data(father_iter, node_name, cons.RICH_TEXT_ID, "", False, 0, False, None)
 
     def node_child_add(self, *args):
         """Add a node having as parent the selected node"""
@@ -2799,6 +2799,7 @@ iter_end, exclude_iter_sel_end=True)
         self.nodes_names_dict[new_node_id] = ret_name
         self.treeview_safe_set_cursor(new_node_iter)
         self.sourceview.grab_focus()
+        return new_node_iter
 
     def node_delete(self, *args):
         """Delete the Selected Node"""
@@ -2912,7 +2913,23 @@ iter_end, exclude_iter_sel_end=True)
             else:
                 if self.treestore[self.curr_tree_iter][1] == now_month\
                 and self.treestore[self.treestore.iter_parent(self.curr_tree_iter)][1] == now_year:
-                    self.node_child_exist_or_create(self.curr_tree_iter, now_day)
+                    old_time_iter = self.get_date_yester()
+                    if old_time_iter:
+                        old_text_buffer = self.get_textbuffer_from_tree_iter(old_time_iter)
+                        found_text = old_text_buffer.get_slice(old_text_buffer.get_start_iter(), old_text_buffer.get_end_iter())
+                        # find unchecked check_boxes, where all levels of checkboxes below are also checked
+                        # text_buffer.delete(iter_start, iter_end)
+                        new_time_iter = self.node_child_exist_or_create(self.curr_tree_iter, now_day)
+                        new_text_buffer = self.get_textbuffer_from_tree_iter(new_time_iter)
+                        
+                        end_offset_iter = new_text_buffer.get_end_iter()
+                        if end_offset_iter.get_offset() != 0:
+                            print("node is not empty! won't copy text into non-empty node!")
+                        else:
+                            # here we're safe to edit the current node
+                            new_text_buffer.insert(end_offset_iter, found_text)
+                    else:
+                        self.node_child_exist_or_create(self.curr_tree_iter, now_day)
                     return
                 if self.treestore[self.curr_tree_iter][1] == now_year:
                     self.node_child_exist_or_create(self.curr_tree_iter, now_month)
@@ -2920,6 +2937,36 @@ iter_end, exclude_iter_sel_end=True)
                     return
         self.node_child_exist_or_create(None, now_year)
         self.node_date()
+    
+    def get_date_yester(self, *args):
+        """Insert Date Node in Tree"""
+        safe_time = time.time()
+        curr_iter = self.curr_tree_iter
+        for i in xrange(1, 40):
+            curr_time = safe_time - i * 24*60*60
+            now_year = support.get_timestamp_str("%Y", curr_time)
+            now_month = support.get_timestamp_str("%B", curr_time)
+            now_day = support.get_timestamp_str(self.journal_day_format, curr_time)
+            if curr_iter:
+                if self.treestore.iter_depth(curr_iter) == 0:
+                    return None
+                if self.treestore[curr_iter][1] == now_month\
+                and self.treestore[self.treestore.iter_parent(curr_iter)][1] == now_year:
+                    maybe_day = self.node_child_exists(curr_iter, now_day)
+                    if maybe_day:
+                        return maybe_day
+        print("long vacation or first time using this?")
+        return None
+
+    def node_child_exists(self, father_iter, node_name):
+        """Try to find node_name from father_iter"""
+        curr_iter = self.treestore.iter_children(father_iter) if father_iter else self.treestore.get_iter_first()
+        while curr_iter:
+            if self.treestore[curr_iter][1] == node_name:
+                return curr_iter
+            curr_iter = self.treestore.iter_next(curr_iter)
+        return None
+
 
     def get_node_children_list(self, father_tree_iter, level):
         """Return a string listing the node children"""
