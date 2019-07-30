@@ -2916,7 +2916,7 @@ iter_end, exclude_iter_sel_end=True)
                     old_time_iter = self.get_date_yester()
                     if old_time_iter:
                         old_text_buffer = self.get_textbuffer_from_tree_iter(old_time_iter)
-                        found_text = old_text_buffer.get_slice(old_text_buffer.get_start_iter(), old_text_buffer.get_end_iter())
+
                         # find unchecked check_boxes, where all levels of checkboxes below are also checked
                         # text_buffer.delete(iter_start, iter_end)
                         new_time_iter = self.node_child_exist_or_create(self.curr_tree_iter, now_day)
@@ -2927,7 +2927,8 @@ iter_end, exclude_iter_sel_end=True)
                             print("node is not empty! won't copy text into non-empty node!")
                         else:
                             # here we're safe to edit the current node
-                            new_text_buffer.insert(end_offset_iter, found_text)
+                            old_text_buffer = self.del_all_crossed(old_text_buffer)
+                            new_text_buffer.insert(new_text_buffer.get_start_iter(), old_text_buffer.get_text(old_text_buffer.get_start_iter(), old_text_buffer.get_end_iter(), True), -1)
                     else:
                         self.node_child_exist_or_create(self.curr_tree_iter, now_day)
                     return
@@ -2937,7 +2938,38 @@ iter_end, exclude_iter_sel_end=True)
                     return
         self.node_child_exist_or_create(None, now_year)
         self.node_date()
-    
+
+    def del_all_crossed(self, old_text_buffer):
+        copy = gtk.TextBuffer(self.tag_table)
+        copy.insert(copy.get_start_iter(), old_text_buffer.get_text(old_text_buffer.get_start_iter(), old_text_buffer.get_end_iter(), True), -1)
+
+        line_no = 0
+        while line_no < copy.get_line_count():
+            start_iter = copy.get_iter_at_line(line_no)
+            if line_no < copy.get_line_count() - 1:
+                end_iter = copy.get_iter_at_line(line_no + 1)
+            else:
+                end_iter = copy.get_end_iter()
+            no_ws_start = self.no_ws(copy, start_iter, end_iter)
+            if self.is_checked(no_ws_start):
+                p = copy.get_slice(start_iter, end_iter)
+                copy.delete(start_iter, end_iter)
+                line_no -= 1
+            line_no += 1
+        return copy
+
+    def is_checked(self, start_iter):
+        return start_iter.get_char() == self.chars_todo[1] or start_iter.get_char() == self.chars_todo[2]
+
+    def no_ws(self, buffer, start_iter, end_iter):
+        ws_iter = start_iter.copy()
+        while ws_iter.get_offset() < end_iter.get_offset():
+            if ws_iter.get_char() == " " or ws_iter.get_char() == "\t":
+                ws_iter.forward_char()
+            else:
+                break
+        return ws_iter
+
     def get_date_yester(self, *args):
         """Insert Date Node in Tree"""
         safe_time = time.time()
